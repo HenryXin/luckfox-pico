@@ -148,6 +148,29 @@ static int init_display(struct fbtft_par *par)
 }
 
 /**
+ * set_addr_win() - set the GRAM update window for 240x240 display
+ *
+ * @par: FBTFT parameter object
+ * @xs: Start column address
+ * @ys: Start row address
+ * @xe: End column address
+ * @ye: End row address
+ *
+ * For 240x240 ST7789 displays, the column and row addresses typically
+ * start at 0,0 and go to 239,239. Some displays may need offsets.
+ */
+static void set_addr_win(struct fbtft_par *par, int xs, int ys, int xe, int ye)
+{
+	write_reg(par, MIPI_DCS_SET_COLUMN_ADDRESS,
+		  (xs >> 8) & 0xFF, xs & 0xFF, (xe >> 8) & 0xFF, xe & 0xFF);
+
+	write_reg(par, MIPI_DCS_SET_PAGE_ADDRESS,
+		  (ys >> 8) & 0xFF, ys & 0xFF, (ye >> 8) & 0xFF, ye & 0xFF);
+
+	write_reg(par, MIPI_DCS_WRITE_MEMORY_START);
+}
+
+/**
  * set_var() - apply LCD properties like rotation and BGR mode
  *
  * @par: FBTFT parameter object
@@ -255,12 +278,13 @@ static int blank(struct fbtft_par *par, bool on)
 static struct fbtft_display display = {
 	.regwidth = 8,
 	.width = 240,
-	.height = 320,
+	.height = 240,
 	.gamma_num = 2,
 	.gamma_len = 14,
 	.gamma = HSD20_IPS_GAMMA,
 	.fbtftops = {
 		.init_display = init_display,
+		.set_addr_win = set_addr_win,
 		.set_var = set_var,
 		.set_gamma = set_gamma,
 		.blank = blank,
