@@ -7,9 +7,11 @@
 
 #include <linux/bitops.h>
 #include <linux/delay.h>
+#include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <video/mipi_display.h>
 
 #include "fbtft.h"
@@ -67,6 +69,16 @@ enum st7789v_command {
 #define MADCTL_MY BIT(7) /* bitmask for page address order */
 
 /**
+ * struct spi_command - Structure for SPI command/data bytes
+ * @dc_state: DC pin state (0 = command, 1 = data)
+ * @byte_value: Byte value to send
+ */
+struct spi_command {
+	u8 dc_state;
+	u8 byte_value;
+};
+
+/**
  * init_display() - initialize the display controller
  *
  * @par: FBTFT parameter object
@@ -82,8 +94,9 @@ enum st7789v_command {
  */
 static int init_display(struct fbtft_par *par)
 {
+	
+#if 0
 	par->fbtftops.reset(par);
-
 	/* turn off sleep mode */
 	write_reg(par, MIPI_DCS_EXIT_SLEEP_MODE);
 	mdelay(120);
@@ -143,7 +156,57 @@ static int init_display(struct fbtft_par *par)
 
 	if (HSD20_IPS)
 		write_reg(par, MIPI_DCS_ENTER_INVERT_MODE);
+#else
+	/* Variable declarations - must be at top for C90 compliance */
+	const struct spi_command commands[] = {
+		{0, 0x01},  /* SWRESET command */
+		{0, 0x11},  /* SLPOUT command */
+		{0, 0x3A},  /* COLMOD command */
+		{1, 0x55},  /* Color mode data (16-bit) */
+		{0, 0x36},  /* MADCTL command */
+		{1, 0x08},  /* MADCTL data */
+		{0, 0x2A},  /* CASET command */
+		{1, 0x00},  /* CASET XSTART high */
+		{1, 0x00},  /* CASET XSTART low */
+		{1, 0x00},  /* CASET XEND high */
+		{1, 0xF0},  /* CASET XEND low (240) */
+		{0, 0x2B},  /* RASET command */
+		{1, 0x00},  /* RASET YSTART high */
+		{1, 0x00},  /* RASET YSTART low */
+		{1, 0x01},  /* RASET YEND high */
+		{1, 0xF0},  /* RASET YEND low (496) */
+		{0, 0x21},  /* INVON command */
+		{0, 0x13},  /* NORON command */
+		{0, 0x29}   /* DISPON command */
+	};
+	const int num_commands = ARRAY_SIZE(commands);
+	int i;
+	int ret;
+	par->fbtftops.reset(par);
 
+	fbtft_par_dbg(DEBUG_INIT_DISPLAY, par, "%s()\n", __func__);
+
+	/* Send command sequence */
+	for (i = 0; i < num_commands; i++) {
+		/* Set DC pin state and send byte via SPI */
+		par->buf[0] = commands[i].byte_value;
+		ret = fbtft_write_buf_dc(par, par->buf, 1, commands[i].dc_state);
+		if (ret < 0)
+			return ret;
+
+		/* Add delays after specific commands */
+		if (i == 0) /* After SWRESET */
+			mdelay(150);
+		else if (i == 1) /* After SLPOUT */
+			mdelay(150);
+		else if (i == 3) /* After COLMOD data */
+			mdelay(10);
+		else if (i == 17) /* After NORON */
+			mdelay(10);
+		else if (i == 18) /* After DISPON */
+			mdelay(100);
+	}
+#endif 
 	return 0;
 }
 

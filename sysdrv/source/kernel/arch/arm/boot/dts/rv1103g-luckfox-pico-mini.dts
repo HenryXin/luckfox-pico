@@ -60,10 +60,44 @@
 /**********SPI**********/
 /* SPI0_M0 */
 &spi0 {
-	status = "disabled";
+	status = "okay";
 	spidev@0 {
+		status = "disabled";
 		spi-max-frequency = <50000000>;
 	};
+
+	st7789v@0 {
+        compatible = "sitronix,st7789v";
+        reg = <0>;
+        
+        /* SPI Configuration */
+        spi-max-frequency = <10000000>;  /* 10 MHz - adjust as needed */
+        spi-cpol;                         /* Clock polarity: idle high */
+        /* Note: spi-cpol only (no spi-cpha) = SPI Mode 2 */
+        
+        /* Display Properties */
+        width = <240>;
+        height = <240>;
+        regwidth = <8>;                   /* 8-bit register width */
+        buswidth = <8>;                   /* 8-bit bus width */
+        bpp = <16>;                       /* 16 bits per pixel (RGB565) */
+        
+        /* GPIO Configuration */
+        dc-gpios = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;      //DC
+		reset-gpios = <&gpio1 RK_PC5 GPIO_ACTIVE_LOW>;    //RES
+        /* Note: ST7789 does NOT use a CS (Chip Select) pin */
+        
+        /* Display Settings */
+        rotate = <0>;                     /* 0, 90, 180, or 270 degrees */
+        bgr;                              /* BGR color order (optional) */
+        fps = <20>;                       /* Frames per second */
+        
+        /* Optional: Backlight */
+        /* led-gpios = <&gpio 18 GPIO_ACTIVE_HIGH>; */
+        
+        /* Optional: Debug */
+        /* debug = <0x7>; */
+    };
 };
 
 /**********I2C**********/
